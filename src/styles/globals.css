@@ -5,3 +5,9 @@
 
 
 
+.Polaris-IndexTable__TableCell--first{
+    display: none !important;
+}
+.Polaris-IndexTable__TableHeading--first{
+    display: none !important;
+}

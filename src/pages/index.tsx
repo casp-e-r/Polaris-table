@@ -12,22 +12,33 @@ import {
   SkeletonTabs,
   SkeletonThumbnail,
   SkeletonBodyText,
-  SkeletonDisplayText,
   Divider,
+  Tag,
 } from '@shopify/polaris';
 import Image from 'next/image';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery } from 'react-query';
 
-const randomInventory = () => {
-  return Math.floor(Math.random() * (2500 - 0 + 1) + 0);
-}
+type Product = {
+  id: string;
+  category: string;
+  imageUrl: string;
+  title: string;
+  status: string;
+  inventoryCount: number;
+  vendor: string;
+  salesType: string;
+  availability: string;
+};
 
 const statuses = ['active', 'draft', 'archive'];
 const vendors = ['vendor 1', 'vendor 2', 'vendor 3'];
 const availabilities = ['Online Store', 'Point of Sale', 'Buy Button'];
 const salesType = ['indoor', 'outdoor'];
 
+const randomInventory = () => {
+  return Math.floor(Math.random() * (2500 - 0 + 1) + 0);
+}
 const randomString = (type: string) => {
   const arrayType = type == 'status' ? statuses : type == 'vendor' ? vendors : type == 'availability' ? availabilities : salesType;
   const randomValue = (array: string[]) => array[Math.floor(Math.random() * array?.length)];
@@ -39,10 +50,9 @@ export default function FiltersWithADataTableExample() {
   const [productType, setProductType] = useState<string[]>([]);
   const [vendor, setVendor] = useState<string[]>([]);
   const [queryValue, setQueryValue] = useState('');
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [selectedTab, setSelectedTab] = useState<number>(0);
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
   const appliedFilters: any[] = [];
 
   const getProductsQuery = useQuery(
@@ -68,8 +78,8 @@ export default function FiltersWithADataTableExample() {
     { enabled: !!selectedProduct }
   );
 
-  const arrayOfProducts1 = useMemo(() => {
-    const products = getProductsQuery?.data?.map((obj: any) => {
+  const productData = useMemo(() => {
+    const products: Product[] = getProductsQuery?.data?.map((obj: any) => {
       return {
         id: obj?.id,
         category: obj?.category,
@@ -87,8 +97,8 @@ export default function FiltersWithADataTableExample() {
   }, [getProductsQuery?.data])
 
   useEffect(() => {
-    if (arrayOfProducts1) {
-      let filteredArray = [...arrayOfProducts1];
+    if (productData) {
+      let filteredArray = [...productData];
 
       if (availability?.length > 0) {
         filteredArray = filteredArray?.filter((product) =>
@@ -105,6 +115,11 @@ export default function FiltersWithADataTableExample() {
           productType?.includes(product?.category)
         );
       }
+      if (queryValue?.trim()?.length > 1) {
+        filteredArray = filteredArray.filter((product) =>
+          product?.title?.toLowerCase().includes(queryValue?.trim()?.toLowerCase())
+        );
+      }
 
       if (selectedTab !== 0) {
         filteredArray = filteredArray.filter((product) =>
@@ -116,13 +131,12 @@ export default function FiltersWithADataTableExample() {
 
       setFilteredProducts(filteredArray);
     }
-  }, [availability, vendor, productType, arrayOfProducts1, selectedTab])
+  }, [availability, vendor, productType, productData, selectedTab, queryValue])
 
   const handleTabChange = useCallback(
     (selectedTabIndex: number) => setSelectedTab(selectedTabIndex),
     [],
   );
-
   const handleAvailabilityChange = useCallback(
     (value: string[]) => setAvailability(value),
     [],
@@ -132,16 +146,11 @@ export default function FiltersWithADataTableExample() {
     [],
   );
   const handleVendorChange = useCallback(
-    (value: string[]) => {
-      setVendor(value)
-    },
+    (value: string[]) => setVendor(value),
     [],
   );
   const handleFiltersQueryChange = useCallback(
-    (value: string) => {
-      setQueryValue(value)
-      // filter array
-    },
+    (value: string) => setQueryValue(value),
     [],
   );
   const handleAvailabilityRemove = useCallback(() => setAvailability([]), []);
@@ -196,7 +205,7 @@ export default function FiltersWithADataTableExample() {
         <ChoiceList
           title="Availability"
           titleHidden
-          choices={availabilities?.map((dt: any) => {
+          choices={availabilities?.map((dt: string) => {
             return { label: dt, value: dt }
           })}
           selected={availability || []}
@@ -213,7 +222,7 @@ export default function FiltersWithADataTableExample() {
         <ChoiceList
           title="Product type"
           titleHidden
-          choices={getCategoriesQuery?.data?.map((dt: any) => {
+          choices={getCategoriesQuery?.data?.map((dt: string) => {
             return { label: dt, value: dt }
           })}
           selected={productType || []}
@@ -229,7 +238,7 @@ export default function FiltersWithADataTableExample() {
         <ChoiceList
           title="Vendor"
           titleHidden
-          choices={vendors?.map((dt: any) => {
+          choices={vendors?.map((dt: string) => {
             return { label: dt, value: dt }
           })}
           selected={vendor || []}
@@ -273,7 +282,7 @@ export default function FiltersWithADataTableExample() {
         id={id}
         key={id}
         position={index}
-        onClick={() => setSelectedProduct(id)}
+        onClick={() => setSelectedProduct(Number(id))}
       >
         <IndexTable.Cell>
           <Thumbnail
@@ -282,7 +291,11 @@ export default function FiltersWithADataTableExample() {
           />
         </IndexTable.Cell>
         <IndexTable.Cell>{title?.length > 10 ? `${title.substring(0, 10)}...` : title}</IndexTable.Cell>
-        <IndexTable.Cell>{status}</IndexTable.Cell>
+        <IndexTable.Cell>
+          <Tag>
+            {status}
+          </Tag>
+        </IndexTable.Cell>
         <IndexTable.Cell>{inventoryCount}</IndexTable.Cell>
         <IndexTable.Cell>{vendor}</IndexTable.Cell>
         <IndexTable.Cell>{availability}</IndexTable.Cell>
@@ -291,14 +304,14 @@ export default function FiltersWithADataTableExample() {
   );
 
   return (
-    <div className='h-screen'>
+    <div className='h-screen '>
       <Page title="Sales by product">
         <Card>
           <Modal
             title={getPrductByIdQuery?.data?.title}
             size='fullScreen'
-            open={selectedProduct ? true : false} //modalOpen
-            onClose={() => setSelectedProduct(null)} //setModalOpen(false)
+            open={selectedProduct ? true : false}
+            onClose={() => setSelectedProduct(null)}
           >
             <Modal.Section>
               <BlockStack>
@@ -311,25 +324,25 @@ export default function FiltersWithADataTableExample() {
                       <SkeletonBodyText />
                     </div>
                     : (
-                    <BlockStack gap='500'>
-                      <Image src={getPrductByIdQuery?.data?.image} alt={`${getPrductByIdQuery?.data?.tite} - Image`} width='200' height='200' className='flex mx-auto py-10' />
-                      <Divider />
-                      <div>
-                        <h3 className='font-bold text-xl'>Description</h3>
-                        <p>{getPrductByIdQuery?.data?.description}</p>
-                      </div>
-                      <Divider />
-                      <BlockStack>
-                        <div className='space-x-4'>
-                          <span className='font-semibold text-md'>Rating :</span>
-                          <span>{getPrductByIdQuery?.data?.rating?.rate}</span>
+                      <BlockStack gap='500'>
+                        <Image src={getPrductByIdQuery?.data?.image} alt={`${getPrductByIdQuery?.data?.tite} - Image`} width='250' height='250' className='flex mx-auto py-10' />
+                        <Divider />
+                        <div>
+                          <h3 className='font-bold text-xl'>Description</h3>
+                          <p>{getPrductByIdQuery?.data?.description}</p>
                         </div>
-                        <div className='space-x-4'>
-                          <span className='font-semibold text-md'>Rated By :</span>
-                          <span>{getPrductByIdQuery?.data?.rating?.count}</span>
-                        </div>
+                        <Divider />
+                        <BlockStack>
+                          <div className='space-x-4'>
+                            <span className='font-semibold text-md'>Rating :</span>
+                            <span>{getPrductByIdQuery?.data?.rating?.rate}</span>
+                          </div>
+                          <div className='space-x-4'>
+                            <span className='font-semibold text-md'>Rated By :</span>
+                            <span>{getPrductByIdQuery?.data?.rating?.count}</span>
+                          </div>
+                        </BlockStack>
                       </BlockStack>
-                    </BlockStack>
                     )
                   }
 
@@ -337,7 +350,7 @@ export default function FiltersWithADataTableExample() {
               </BlockStack>
             </Modal.Section>
           </Modal>
-          {getProductsQuery?.isLoading || getCategoriesQuery?.isLoading || !arrayOfProducts1 ?
+          {getProductsQuery?.isLoading || getCategoriesQuery?.isLoading || !productData ?
             <div className="">
               <SkeletonTabs />
             </div>
@@ -345,7 +358,7 @@ export default function FiltersWithADataTableExample() {
             <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange}>
               <Filters
                 queryValue={queryValue}
-                queryPlaceholder="Search items"
+                queryPlaceholder="Search products"
                 filters={filters}
                 appliedFilters={appliedFilters}
                 onQueryChange={handleFiltersQueryChange}
